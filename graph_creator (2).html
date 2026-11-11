@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Graph Creator</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{--red:#C8102E;--ink:#1a1a1a;--mut:#6b6b6b;--line:#e2e2e2;--bg:#f6f4f3}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Segoe UI",Arial,sans-serif;background:var(--bg);color:var(--ink)}
+.app{display:grid;grid-template-columns:340px 1fr;gap:24px;max-width:1220px;margin:0 auto;padding:24px}
+@media(max-width:860px){.app{grid-template-columns:1fr}}
+.panel{background:#fff;border:1px solid var(--line);border-radius:10px;padding:20px;align-self:start}
+h1{font-size:20px;margin:0 0 4px}
+.sub{color:var(--mut);font-size:13px;margin:0 0 14px}
+label.t{display:block;font-weight:600;font-size:13px;margin:16px 0 6px}
+input[type=file],input[type=text],select{width:100%;font:inherit;font-size:13px;padding:7px;border:1px solid var(--line);border-radius:6px;background:#fff}
+button{font:inherit;font-size:13px;cursor:pointer;border-radius:6px;border:1px solid var(--line);background:#fff;padding:8px;color:var(--ink)}
+button:hover:not(:disabled){border-color:var(--red)}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--red);outline-offset:2px}
+button.on{background:var(--red);border-color:var(--red);color:#fff}
+button.go{background:var(--red);border-color:var(--red);color:#fff;font-weight:700;width:100%;margin-top:16px;padding:11px;font-size:14px}
+button:disabled{opacity:.4;cursor:not-allowed}
+.styles,.row{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.row{margin-top:8px}
+.link{border:0;background:none;color:var(--red);padding:6px 0;text-decoration:underline}
+.sr{display:grid;grid-template-columns:1fr auto auto;gap:6px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}
+.sr .nm{grid-column:1/-1;font-size:13px;font-weight:600}
+.sr .rx{font-size:12px;color:var(--mut);white-space:nowrap}
+.sr input[type=color]{width:34px;height:28px;padding:0;border:1px solid var(--line);border-radius:4px;background:#fff}
+.chk{display:flex;gap:6px;align-items:center;font-size:13px;margin-top:12px}
+#msg{font-size:13px;margin-top:12px;min-height:18px;color:var(--mut)}
+#msg.err{color:var(--red)}
+.stage{background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px;min-height:300px;display:flex;align-items:flex-start;justify-content:center}
+canvas{width:100%;height:auto;display:none}
+#ph{color:var(--mut);text-align:center;font-size:15px;padding:80px 40px}
+</style>
+</head>
+<body>
+<div class="app">
+ <div class="panel">
+  <h1>Graph Creator</h1>
+  <p class="sub">แนบข้อมูลอะไรก็ได้ แล้วเลือกคอลัมน์เอง</p>
+  <label class="t" for="f">1. แนบ dataset (.xlsx / .csv)</label>
+  <input type="file" id="f" accept=".xlsx,.xls,.csv">
+  <button class="link" id="sample" type="button">ใช้ข้อมูลตัวอย่าง</button>
+  <div id="map" hidden>
+   <label class="t" for="lab">2. คอลัมน์ป้ายชื่อ (แกน X)</label>
+   <select id="lab"></select>
+   <label class="t">3. คอลัมน์ตัวเลขที่จะแสดง (ติ๊กเลือก)</label>
+   <div id="ser"></div>
+  </div>
+  <label class="t">4. รูปแบบกราฟ (แก้ชนิดของแต่ละคอลัมน์เองได้)</label>
+  <div class="styles" id="styles">
+   <button type="button" data-p="clustered" class="on">แท่งกลุ่ม</button>
+   <button type="button" data-p="overlap">แท่งซ้อนทับ</button>
+   <button type="button" data-p="stack">แท่งซ้อนรวม</button>
+   <button type="button" data-p="horizontal">แท่งแนวนอน</button>
+   <button type="button" data-p="combo1">Combo: แท่ง + เส้น</button>
+   <button type="button" data-p="combo2">Combo: แท่งซ้อน + เส้น</button>
+   <button type="button" data-p="combo3">Combo: พื้นที่ + เส้น</button>
+   <button type="button" data-p="line">เส้น</button>
+   <button type="button" data-p="area">พื้นที่</button>
+  </div>
+  <label class="t" for="ttl">หัวข้อกราฟ</label>
+  <input type="text" id="ttl" value="Graph title">
+  <label class="t" for="sub">หัวข้อรอง / หน่วย</label>
+  <input type="text" id="sub" placeholder="เช่น Kilograms per person">
+  <label class="t" for="src">แหล่งที่มาข้อมูล</label>
+  <input type="text" id="src" placeholder="พิมพ์แหล่งที่มา (เว้นว่างได้)">
+  <label class="chk"><input type="checkbox" id="vals" checked> แสดงตัวเลขบนกราฟ</label>
+  <button class="go" id="go" type="button" disabled>5. ประมวลผล</button>
+  <div class="row">
+   <button type="button" id="dl" disabled>ดาวน์โหลด PNG</button>
+   <button type="button" id="rs">รีเซ็ต</button>
+  </div>
+  <div id="msg" role="status"></div>
+ </div>
+ <div class="stage"><div id="ph">ยังไม่มีกราฟ<br>แนบไฟล์ เลือกคอลัมน์ แล้วกด “ประมวลผล”</div><canvas id="cv"></canvas></div>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+const cv=$('cv'),ctx=cv.getContext('2d');
+const PAL=['#C8102E','#1F5FA8','#E8A317','#2E8B57','#7B4EA3','#E4572E','#17A2B8','#777777'];
+const OVL=['#F4A0A5','#C8102E','#8DB9E8','#1F5FA8','#F6D68B','#E8A317'];
+const TYPES={bar:'แท่ง',overlap:'แท่งซ้อนทับ',stack:'แท่งซ้อนรวม',line:'เส้น',area:'พื้นที่'};
+const SAMPLE="Code,Country,Total waste (kg/person),Household waste (kg/person)\nCY,Cyprus,295,77\nDK,Denmark,261,87\nEL,Greece,208,87\nRO,Romania,188,102\nPT,Portugal,161,104\nFR,France,145,61\nBE,Belgium,137,65\nIT,Italy,137,102\nMT,Malta,136,85\nLV,Latvia,134,86\nSE,Sweden,132,59\nIE,Ireland,131,41\nDE,Germany,131,76\nPL,Poland,130,70\nLU,Luxembourg,130,80\nEU,EU,129,68\nNL,Netherlands,129,51\nAT,Austria,128,69\nHR,Croatia,122,55\nFI,Finland,104,60\nEE,Estonia,101,47\nCZ,Czechia,101,60\nBG,Bulgaria,96,41\nHU,Hungary,87,60\nSI,Slovenia,79,35\nSK,Slovakia,72,49\nLT,Lithuania,68,37\nES,Spain,54,24".split('\n').map(l=>l.split(',').map(x=>x!==''&&!isNaN(+x)?+x:x));
+let DATA=null,preset='clustered',drawn=false;
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const num=v=>{if(typeof v==='number')return v;if(v==null)return NaN;const t=String(v).replace(/[,%\s]/g,'');return /^-?\d*\.?\d+$/.test(t)?parseFloat(t):NaN};
+const fmt=v=>Math.abs(v)>=1000?Math.round(v).toLocaleString('en'):String(+v.toFixed(1));
+function msg(t,e){const m=$('msg');m.textContent=t;m.className=e?'err':''}
+
+function load(raw,name){
+  const ne=r=>r.filter(c=>c!=null&&c!=='').length;
+  raw=raw.filter(r=>ne(r)>0);
+  const hi=raw.findIndex(r=>ne(r)>=2);
+  if(hi<0)throw new Error('ไม่พบตารางข้อมูล (ต้องมีอย่างน้อย 2 คอลัมน์)');
+  const hdr=raw[hi],rows=raw.slice(hi+1).filter(r=>ne(r)>=2);
+  if(!rows.length)throw new Error('ไม่พบแถวข้อมูลใต้หัวตาราง');
+  const w=Math.max(hdr.length,...rows.map(r=>r.length)),cols=[];
+  for(let j=0;j<w;j++){
+    const nm=String(hdr[j]??'').trim()||'Column '+(j+1),ev=rows.map(r=>r[j]).filter(v=>v!=null&&v!=='');
+    const vals=rows.map(r=>{const v=num(r[j]);return isNaN(v)?null:v});
+    const numeric=ev.length>0&&ev.filter(v=>!isNaN(num(v))).length/ev.length>=.7;
+    const idx=/rank|^no\.?$|^#$|^id$|ลำดับ/i.test(nm)||(numeric&&vals.every((v,k)=>v===vals[0]+k));
+    cols.push({name:nm,numeric,idx,vals});
+  }
+  const nc=cols.map((c,i)=>i).filter(i=>cols[i].numeric);
+  if(!nc.length)throw new Error('ไม่พบคอลัมน์ที่เป็นตัวเลข');
+  DATA={cols,rows};
+  const lab=cols.findIndex(c=>!c.numeric);
+  $('lab').innerHTML=cols.map((c,i)=>`<option value="${i}">${esc(c.name)}</option>`).join('');
+  $('lab').value=lab<0?0:lab;
+  const def=nc.filter(i=>!cols[i].idx&&i!==+$('lab').value).slice(0,2);
+  $('ser').innerHTML=nc.map((i,k)=>`<div class="sr" data-i="${i}"><label class="nm"><input type="checkbox" class="on"${def.includes(i)?' checked':''}> ${esc(cols[i].name)}</label><select class="ty">${Object.entries(TYPES).map(([v,t])=>`<option value="${v}">${t}</option>`).join('')}</select><label class="rx"><input type="checkbox" class="rt"> แกนขวา</label><input type="color" class="co" value="${PAL[k%8]}" aria-label="สี"></div>`).join('');
+  $('map').hidden=false;$('go').disabled=false;drawn=false;
+  setPreset(preset);
+  msg(name+' — '+rows.length+' แถว, '+nc.length+' คอลัมน์ตัวเลข');
+}
+$('f').addEventListener('change',async e=>{
+  const f=e.target.files[0];if(!f)return;
+  try{
+    if(typeof XLSX==='undefined')throw new Error('โหลดไลบรารีอ่านไฟล์ไม่ได้ (ต้องเชื่อมต่ออินเทอร์เน็ต)');
+    const wb=XLSX.read(await f.arrayBuffer(),{type:'array'});
+    load(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:null}),f.name);
+  }catch(err){DATA=null;$('go').disabled=true;$('map').hidden=true;msg(err.message,true)}
+});
+$('sample').onclick=()=>{
+  $('f').value='';preset='overlap';load(SAMPLE,'ข้อมูลตัวอย่าง');
+  const c=[...$('lab').options].findIndex(o=>o.text==='Code');if(c>=0)$('lab').value=c;
+  $('ttl').value='Food waste in the EU';$('sub').value='Kilograms per person in 2024';
+};
+
+function setPreset(p){
+  preset=p;[...$('styles').children].forEach(b=>b.classList.toggle('on',b.dataset.p===p));
+  const rows=[...$('ser').children].filter(r=>r.querySelector('.on').checked);
+  rows.forEach((r,k)=>{
+    const first=k===0,last=k===rows.length-1;
+    r.querySelector('.ty').value={clustered:'bar',horizontal:'bar',overlap:'overlap',stack:'stack',combo1:first?'bar':'line',combo2:rows.length>1&&last?'line':'stack',combo3:first?'area':'line',line:'line',area:'area'}[p];
+    if(p==='overlap')r.querySelector('.co').value=OVL[k%6];
+  });
+}
+$('styles').addEventListener('click',e=>{const b=e.target.closest('button');if(!b||!DATA)return;setPreset(b.dataset.p);if(drawn)draw()});
+['ser','lab','vals'].forEach(i=>$(i).addEventListener('change',()=>{if(drawn)draw()}));
+['ttl','sub','src'].forEach(i=>$(i).addEventListener('input',()=>{if(drawn)draw()}));
+$('go').onclick=()=>{try{if(draw()){drawn=true;$('dl').disabled=false;msg('ประมวลผลแล้ว')}}catch(e){msg('สร้างกราฟไม่สำเร็จ: '+e.message,true)}};
+$('dl').onclick=()=>cv.toBlob(b=>{const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='graph-'+preset+'.png';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)},'image/png');
+$('rs').onclick=()=>{
+  DATA=null;drawn=false;preset='clustered';$('f').value='';$('ttl').value='Graph title';$('sub').value='';$('src').value='';$('vals').checked=true;
+  [...$('styles').children].forEach((b,i)=>b.classList.toggle('on',i===0));
+  $('map').hidden=true;$('ser').innerHTML='';$('go').disabled=true;$('dl').disabled=true;cv.style.display='none';$('ph').style.display='block';msg('');
+};
+
+function draw(){
+  const sel=[...$('ser').children].filter(r=>r.querySelector('.on').checked).map(r=>({name:DATA.cols[+r.dataset.i].name,v:DATA.cols[+r.dataset.i].vals,type:r.querySelector('.ty').value,right:r.querySelector('.rt').checked,color:r.querySelector('.co').value}));
+  if(!sel.length){msg('ติ๊กเลือกคอลัมน์ตัวเลขอย่างน้อย 1 คอลัมน์',true);return false}
+  const li=+$('lab').value,lab=DATA.rows.map(r=>{const s=String(r[li]??'');return s.length>18?s.slice(0,17)+'…':s}),n=lab.length;
+  const horiz=preset==='horizontal',W=1080,showV=$('vals').checked;
+  const ss=sel.map(s=>({...s,type:horiz&&(s.type==='line'||s.type==='area')?'bar':s.type}));
+  const anyL=ss.some(s=>!s.right);ss.forEach(s=>s.r=s.right&&anyL&&!horiz);
+  const G=[];ss.forEach(s=>{if(s.type==='bar')G.push({k:'bar',m:[s]});else if(s.type==='stack'||s.type==='overlap'){let g=G.find(g=>g.k===s.type);if(!g)G.push(g={k:s.type,m:[]});g.m.push(s)}});
+  const rng=list=>{
+    let lo=0,hi=0;
+    for(let i=0;i<n;i++){let sp=0,sq=0;list.forEach(s=>{const v=s.v[i];if(v==null)return;if(s.type==='stack'){v>=0?sp+=v:sq+=v}else{hi=Math.max(hi,v);lo=Math.min(lo,v)}});hi=Math.max(hi,sp);lo=Math.min(lo,sq)}
+    const raw=((hi-lo)||1)/5,p=10**Math.floor(Math.log10(raw)),st=[1,2,2.5,5,10].map(x=>x*p).find(x=>x>=raw);
+    lo=Math.floor(lo/st)*st;hi=Math.ceil(hi/st)*st;if(hi===lo)hi=lo+st;return{lo,hi,st};
+  };
+  const AL=rng(ss.filter(s=>!s.r)),AR=ss.some(s=>s.r)?rng(ss.filter(s=>s.r)):null;
+  // legend rows
+  ctx.font='24px Arial';
+  const rowsL=[[]];let cur=0;
+  ss.forEach(s=>{const w=ctx.measureText(s.name).width+58;if(cur+w>W-80&&rowsL[rowsL.length-1].length){rowsL.push([]);cur=0}rowsL[rowsL.length-1].push({s,w});cur+=w});
+  const sub=$('sub').value.trim(),ly=sub?190:140,T=ly+rowsL.length*36+(showV&&!horiz?60:30);
+  const L=horiz?240:90,Rr=W-(AR?90:horiz?90:45),rh=36;
+  let H,B,cw,rot=false;
+  ctx.font='bold '+(n>24?15:19)+'px Arial';
+  if(horiz){B=T+n*rh;H=B+90;cw=rh}
+  else{H=1080;cw=(Rr-L)/n;const mw=Math.max(...lab.map(t=>ctx.measureText(t).width));rot=mw>cw-6;B=H-(rot?mw*.72+60:100)}
+  cv.width=W*2;cv.height=H*2;ctx.setTransform(2,0,0,2,0,0);
+  ctx.fillStyle='#fff';ctx.fillRect(0,0,W,H);
+  // title
+  const words=($('ttl').value||'').split(' '),k=words.length>=3?2:words.length;
+  const a=words.slice(0,k).join(' ')+(words.length>k?' ':''),b=words.slice(k).join(' ');
+  let fs=66;ctx.font='bold '+fs+'px Arial';
+  while(ctx.measureText(a+b).width>W-80&&fs>24){fs-=2;ctx.font='bold '+fs+'px Arial'}
+  const wa=ctx.measureText(a).width,x0=(W-wa-ctx.measureText(b).width)/2;ctx.textAlign='left';
+  ctx.fillStyle='#C8102E';ctx.fillText(a,x0,90);ctx.fillStyle='#111';ctx.fillText(b,x0+wa,90);
+  if(sub){ctx.fillStyle='#222';ctx.font='bold 34px Arial';ctx.textAlign='center';ctx.fillText(sub,W/2,150)}
+  ctx.font='24px Arial';ctx.textAlign='left';
+  rowsL.forEach((r,j)=>{let x=(W-r.reduce((t,i)=>t+i.w,0))/2;r.forEach(i=>{ctx.fillStyle=i.s.color;ctx.fillRect(x,ly+j*36-18,24,24);ctx.fillStyle='#222';ctx.fillText(i.s.name,x+34,ly+j*36+1);x+=i.w})});
+  // scales
+  const val=(v,A)=>horiz?L+(v-A.lo)/(A.hi-A.lo)*(Rr-L):B-(v-A.lo)/(A.hi-A.lo)*(B-T);
+  const cc=i=>horiz?T+cw*(i+.5):L+cw*(i+.5);
+  ctx.font='20px Arial';ctx.strokeStyle='#e4e4e4';ctx.lineWidth=1;
+  const tick=(A,fn)=>{const c=Math.round((A.hi-A.lo)/A.st);for(let j=0;j<=c;j++){const v=A.lo+j*A.st;fn(+v.toPrecision(10),val(v,A))}};
+  tick(AL,(v,p)=>{ctx.beginPath();ctx.fillStyle='#555';
+    if(horiz){ctx.moveTo(p,T);ctx.lineTo(p,B);ctx.stroke();ctx.textAlign='center';ctx.fillText(fmt(v),p,B+28)}
+    else{ctx.moveTo(L,p);ctx.lineTo(Rr,p);ctx.stroke();ctx.textAlign='right';ctx.fillText(fmt(v),L-10,p+7)}});
+  if(AR)tick(AR,(v,p)=>{ctx.fillStyle='#555';ctx.textAlign='left';ctx.fillText(fmt(v),Rr+10,p+7)});
+  const ng=G.length,rotV=n*ng>14,fv=n*ng>30?15:19,showBar=showV&&n*ng<=70;
+  const lbl=(t,x,y,rt,col,al,f)=>{ctx.save();ctx.translate(x,y);if(rt)ctx.rotate(-Math.PI/2);ctx.font='italic bold '+(f||fv)+'px Arial';ctx.fillStyle=col;ctx.textAlign=al;ctx.fillText(t,0,0);ctx.restore()};
+  const pts=s=>{const A=s.r?AR:AL,o=[];s.v.forEach((v,i)=>{if(v!=null)o.push([cc(i),val(v,A),v])});return o};
+  // areas
+  ss.filter(s=>s.type==='area').forEach(s=>{const p=pts(s);if(!p.length)return;const z=val(0,s.r?AR:AL);
+    ctx.beginPath();ctx.moveTo(p[0][0],z);p.forEach(q=>ctx.lineTo(q[0],q[1]));ctx.lineTo(p[p.length-1][0],z);ctx.closePath();
+    ctx.globalAlpha=.3;ctx.fillStyle=s.color;ctx.fill();ctx.globalAlpha=1;
+    ctx.beginPath();p.forEach((q,j)=>j?ctx.lineTo(q[0],q[1]):ctx.moveTo(q[0],q[1]));ctx.strokeStyle=s.color;ctx.lineWidth=3;ctx.stroke()});
+  // bars
+  const rect=(i,gi,v0,v1,col,A)=>{
+    const bw=cw*.76/ng,o=cc(i)-cw*.38+bw*gi,p=val(v0,A),q=val(v1,A);ctx.fillStyle=col;
+    const r=horiz?[Math.min(p,q),o,Math.abs(q-p),bw]:[o,Math.min(p,q),bw,Math.abs(q-p)];ctx.fillRect(...r);return r};
+  const outer=(t,r,v)=>{
+    if(!showBar)return;
+    if(horiz)v>=0?lbl(t,r[0]+r[2]+8,r[1]+r[3]/2+fv*.35,0,'#333','left'):lbl(t,r[0]-8,r[1]+r[3]/2+fv*.35,0,'#333','right');
+    else if(v>=0)lbl(t,r[0]+r[2]/2+(rotV?fv*.35:0),r[1]-8,rotV,'#333',rotV?'left':'center');
+    else lbl(t,r[0]+r[2]/2+(rotV?fv*.35:0),r[1]+r[3]+(rotV?8:fv+4),rotV,'#333',rotV?'right':'center')};
+  G.forEach((g,gi)=>{
+    const A=g.m[0].r?AR:AL;
+    for(let i=0;i<n;i++){
+      if(g.k==='bar'){const s=g.m[0],v=s.v[i];if(v==null)continue;outer(fmt(v),rect(i,gi,0,v,s.color,A),v)}
+      else if(g.k==='stack'){let pos=0,neg=0;g.m.forEach(s=>{const v=s.v[i];if(v==null)return;const f=v>=0?pos:neg;v>=0?pos+=v:neg+=v;const r=rect(i,gi,f,f+v,s.color,A);
+        if(showBar&&(horiz?r[2]:r[3])>22&&!rotV)lbl(fmt(v),r[0]+r[2]/2,r[1]+r[3]/2+6,0,'#fff','center',15)})}
+      else{const m=g.m.filter(s=>s.v[i]!=null).sort((x,y)=>y.v[i]-x.v[i]);
+        m.forEach((s,j)=>{const v=s.v[i],r=rect(i,gi,0,v,s.color,A);
+          if(j===0)outer(fmt(v),r,v);
+          else if(showBar&&!rotV&&(horiz?r[2]:r[3])>34)horiz?lbl(fmt(v),r[0]+r[2]-8,r[1]+r[3]/2+6,0,'#fff','right',15):lbl(fmt(v),r[0]+r[2]/2,r[1]+22,0,'#fff','center',15)})}
+    }
+  });
+  // lines
+  ss.filter(s=>s.type==='line').forEach(s=>{const p=pts(s);if(!p.length)return;
+    ctx.beginPath();p.forEach((q,j)=>j?ctx.lineTo(q[0],q[1]):ctx.moveTo(q[0],q[1]));ctx.strokeStyle=s.color;ctx.lineWidth=4;ctx.lineJoin='round';ctx.stroke();
+    p.forEach(q=>{ctx.beginPath();ctx.arc(q[0],q[1],5,0,7);ctx.fillStyle='#fff';ctx.fill();ctx.lineWidth=3;ctx.stroke()});
+    if(showV&&n<=24)p.forEach(q=>lbl(fmt(q[2]),q[0],q[1]-12,0,'#333','center',16))});
+  // area labels
+  if(showV&&n<=24)ss.filter(s=>s.type==='area').forEach(s=>pts(s).forEach(q=>lbl(fmt(q[2]),q[0],q[1]-10,0,'#333','center',16)));
+  // baseline + category labels
+  ctx.strokeStyle='#222';ctx.lineWidth=2;ctx.beginPath();
+  if(horiz){const z=val(0,AL);ctx.moveTo(z,T-4);ctx.lineTo(z,B)}else{const z=val(0,AL);ctx.moveTo(L,z);ctx.lineTo(Rr,z)}ctx.stroke();
+  ctx.font='bold '+(n>24?15:19)+'px Arial';ctx.fillStyle='#222';
+  lab.forEach((t,i)=>{
+    if(horiz){ctx.textAlign='right';ctx.fillText(t,L-26,cc(i)+6)}
+    else if(rot){ctx.save();ctx.translate(cc(i)+4,B+16);ctx.rotate(-Math.PI/4);ctx.textAlign='right';ctx.fillText(t,0,0);ctx.restore()}
+    else{ctx.textAlign='center';ctx.fillText(t,cc(i),B+30)}});
+  const ft=$('src').value.trim();
+  if(ft){ctx.font='17px Arial';ctx.fillStyle='#666';ctx.textAlign='left';ctx.fillText(ft,40,H-26)}
+  cv.style.display='block';$('ph').style.display='none';return true;
+}
+</script>
+</body>
+</html>
